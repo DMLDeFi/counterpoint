@@ -1,13 +1,22 @@
-// Fast comparison, built client-request-side from parallel analyze_token calls
-// (~1-2s each) instead of RYO's compare_tokens (30-55s). Same factor set and
-// same shape as CompareTokensData so the UI doesn't need to know which source
+// Fast comparison, built client-request-side from analyze_token calls (~1-2s
+// each) instead of RYO's compare_tokens (30-55s). Same factor set and same
+// shape as CompareTokensData so the UI doesn't need to know which source
 // produced it — labeled honestly as an estimate in the UI, and RYO's own
 // compare_tokens result silently upgrades it in place when it arrives.
+//
+// Calls are sequential, not parallel: RYO's backend rejected 2 concurrent
+// analyze_token calls on the same key with a bare "fetch failed" (confirmed
+// against production) even though single calls succeed reliably. Sequential
+// costs a couple extra seconds but is far more reliable — still ~2-8s total
+// for 2-4 symbols, nowhere near the old 30-55s single-call latency.
 import "server-only";
 import { analyzeToken, type AnalyzeTokenData, type CompareTokensData } from "./ryo";
 
 export async function buildFastComparison(symbols: string[], intent: string): Promise<CompareTokensData> {
-  const analyses = await Promise.all(symbols.map((s) => analyzeToken(s)));
+  const analyses: { data: AnalyzeTokenData }[] = [];
+  for (const s of symbols) {
+    analyses.push(await analyzeToken(s));
+  }
 
   const tokens: CompareTokensData["tokens"] = analyses.map((a: { data: AnalyzeTokenData }) => ({
     symbol: a.data.asset.symbol,
