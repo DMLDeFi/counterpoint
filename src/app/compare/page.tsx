@@ -49,6 +49,7 @@ export default function ComparePage() {
   const [intent, setIntent] = useState<"swing" | "hold" | "spot">("swing");
   const [result, setResult] = useState<CompareResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
@@ -66,29 +67,37 @@ export default function ComparePage() {
     setError(null);
     setResult(null);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 65_000);
+    const symbolsParam = encodeURIComponent(symbols.join(","));
 
+    // Phase 1: fast path — parallel analyze_token calls (~1-2s), factors computed
+    // in-house. A complete, real comparison, just not RYO's official scoring yet.
     try {
-      // The response streams (see streamJsonResponse) so long RYO calls don't sit
-      // silent long enough to get killed by an idle-connection timeout somewhere
-      // in the path. That means status is always 200 — real errors are in the body.
-      const res = await fetch(`/api/compare/${encodeURIComponent(symbols.join(","))}?intent=${intent}`, {
-        signal: controller.signal,
-      });
-      const text = await res.text();
-      const body = JSON.parse(text.trim());
-      if (!res.ok || body.error) throw new Error(body.error ?? "Request failed.");
+      const res = await fetch(`/api/compare/${symbolsParam}?intent=${intent}&fast=1`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Request failed.");
       setResult(body);
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setError("RYO's comparison took too long to respond (over 65s). Try again — this is a slow-tool timeout, not a crash.");
-      } else {
-        setError(err instanceof Error ? err.message : "Something went wrong.");
-      }
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+      return;
+    }
+    setLoading(false);
+
+    // Phase 2: quietly fetch RYO's own compare_tokens result and upgrade in place.
+    // If it fails or times out, the fast comparison already shown stays valid.
+    setEnriching(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    try {
+      const res = await fetch(`/api/compare/${symbolsParam}?intent=${intent}`, { signal: controller.signal });
+      const text = await res.text();
+      const body = JSON.parse(text.trim());
+      if (res.ok && !body.error) setResult(body);
+    } catch {
+      // Silent — the fast comparison already shown is complete and valid on its own.
     } finally {
       clearTimeout(timeout);
-      setLoading(false);
+      setEnriching(false);
     }
   }
 
@@ -138,11 +147,7 @@ export default function ComparePage() {
           </button>
         </form>
 
-        {loading && (
-          <p className="text-sm text-neutral-500">
-            Comparing live data across all symbols — this can take up to a minute.
-          </p>
-        )}
+        {loading && <p className="text-sm text-neutral-500">Pulling live data from RYO…</p>}
 
         {error && (
           <div role="alert" className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
@@ -167,6 +172,17 @@ export default function ComparePage() {
               </div>
               <p className="mt-2 text-sm text-neutral-400">{result.conclusion.rationale}</p>
               <p className="mt-1 text-xs text-neutral-500">{result.conclusion.runner_up_case}</p>
+              <p className="mt-3 text-xs text-neutral-600">
+                {result.conclusion.method === "fast_estimate"
+                  ? "Computed in-house from live analyze_token calls (fast path)."
+                  : "RYO's own deterministic compare_tokens scoring."}
+              </p>
+              {enriching && (
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-neutral-500">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-500" />
+                  Fetching RYO&apos;s official comparison in the background — this view already reflects a real comparison either way.
+                </p>
+              )}
             </div>
 
             {/* Factor breakdown, sorted by importance (order RYO returns them in) */}

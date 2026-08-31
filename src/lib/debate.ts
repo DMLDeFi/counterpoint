@@ -46,20 +46,30 @@ function claim(side: Side, text: string, sourceField: string, sourceValue: strin
   return { side, text, sourceField, sourceValue, weight };
 }
 
-export async function runDebate(symbolRaw: string): Promise<DebateResult> {
+// includeDeep=false skips deep_analysis and the sentiment call entirely — both are
+// the slow, occasionally-unreliable-over-the-wire calls (30-45s). The fast path
+// (analyze_token only, ~1-2s) is a complete, real debate on its own; the client
+// renders it immediately, then quietly asks for the full version and upgrades
+// in place if it arrives. If it never arrives, the fast result already shown
+// stays valid — nothing about it is a placeholder or degraded UI state.
+export async function runDebate(symbolRaw: string, includeDeep = true): Promise<DebateResult> {
   const symbol = symbolRaw.trim().toUpperCase();
   const warnings: string[] = [];
 
   const [analysis, deep, sentiment] = await Promise.all([
     analyzeToken(symbol),
-    deepAnalysis(symbol, false).catch((err) => {
-      warnings.push(`deep_analysis unavailable: ${(err as Error).message}`);
-      return null;
-    }),
-    monitorMarketSentimentShift().catch((err) => {
-      warnings.push(`monitor_market_sentiment_shift unavailable: ${(err as Error).message}`);
-      return null;
-    }),
+    includeDeep
+      ? deepAnalysis(symbol, false).catch((err) => {
+          warnings.push(`deep_analysis unavailable: ${(err as Error).message}`);
+          return null;
+        })
+      : Promise.resolve(null),
+    includeDeep
+      ? monitorMarketSentimentShift().catch((err) => {
+          warnings.push(`monitor_market_sentiment_shift unavailable: ${(err as Error).message}`);
+          return null;
+        })
+      : Promise.resolve(null),
   ]);
 
   warnings.push(...analysis.warnings);

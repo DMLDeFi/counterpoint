@@ -65,6 +65,7 @@ export default function Home() {
   const [symbol, setSymbol] = useState("");
   const [result, setResult] = useState<DebateResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTrail, setShowTrail] = useState(false);
 
@@ -77,28 +78,39 @@ export default function Home() {
     setError(null);
     setResult(null);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 65_000);
-
+    // Phase 1: fast path (analyze_token only, ~1-2s) — a complete, real debate on
+    // its own. Render it immediately so the page is never sitting on a long silent
+    // wait that's fragile over some networks/extensions.
     try {
-      // The response streams (see streamJsonResponse) so long RYO calls don't sit
-      // silent long enough to get killed by an idle-connection timeout somewhere
-      // in the path. That means status is always 200 — real errors are in the body.
-      const res = await fetch(`/api/debate/${encodeURIComponent(clean)}`, { signal: controller.signal });
-      const text = await res.text();
-      const body = JSON.parse(text.trim());
-      if (!res.ok || body.error) throw new Error(body.error ?? "Request failed.");
+      const res = await fetch(`/api/debate/${encodeURIComponent(clean)}?fast=1`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Request failed.");
       setResult(body);
       setShowTrail(false);
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        setError("RYO's evidence pack took too long to respond (over 65s). Try again — this is a slow-tool timeout, not a crash.");
-      } else {
-        setError(err instanceof Error ? err.message : "Something went wrong.");
-      }
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+      return;
+    }
+    setLoading(false);
+
+    // Phase 2: quietly fetch the fuller version (deep_analysis + sentiment) in the
+    // background and upgrade in place if it arrives. If it fails or times out for
+    // any reason, the fast result shown above stays exactly as it is — no crash,
+    // no broken state, nothing for the user to notice.
+    setEnriching(true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    try {
+      const res = await fetch(`/api/debate/${encodeURIComponent(clean)}`, { signal: controller.signal });
+      const text = await res.text();
+      const body = JSON.parse(text.trim());
+      if (res.ok && !body.error) setResult(body);
+    } catch {
+      // Silent — the fast result already shown is complete and valid on its own.
     } finally {
       clearTimeout(timeout);
-      setLoading(false);
+      setEnriching(false);
     }
   }
 
@@ -174,11 +186,7 @@ export default function Home() {
           </div>
         )}
 
-        {loading && (
-          <p className="text-sm text-neutral-500">
-            Running the full evidence pack (deep analysis can take 30–40s) — pulling live data, not cached.
-          </p>
-        )}
+        {loading && <p className="text-sm text-neutral-500">Pulling live data from RYO…</p>}
 
         {error && (
           <div role="alert" className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
@@ -206,6 +214,12 @@ export default function Home() {
                   {result.finalVerdict} · {result.confidence} confidence
                 </span>
               </div>
+              {enriching && (
+                <p className="mt-3 flex items-center gap-1.5 text-xs text-neutral-500">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-neutral-500" />
+                  Fetching deeper evidence (confluence, sentiment) in the background — this view already reflects a complete debate either way.
+                </p>
+              )}
               <p className="mt-3 text-sm text-neutral-400">
                 RYO&apos;s own model verdict: <span className="font-mono text-neutral-300">{result.modelVerdict}</span> · data mode{" "}
                 <span className="font-mono text-neutral-300">{result.dataMode}</span> · as of{" "}
