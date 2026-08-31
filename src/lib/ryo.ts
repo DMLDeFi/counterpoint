@@ -106,7 +106,11 @@ class RyoToolError extends Error {
   }
 }
 
-async function callTool<TData>(tool: string, args: Record<string, unknown> = {}, timeoutMs = 45_000): Promise<RyoEnvelope<TData>> {
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callToolOnce<TData>(tool: string, args: Record<string, unknown>, timeoutMs: number): Promise<RyoEnvelope<TData>> {
   // Vercel kills the whole function past its maxDuration with no clean error —
   // we cancel ourselves first, with margin, so the caller gets a real Error instead.
   const controller = new AbortController();
@@ -137,12 +141,39 @@ async function callTool<TData>(tool: string, args: Record<string, unknown> = {},
   const body = await res.json();
 
   if (!res.ok) {
-    throw new RyoToolError(tool, res.status, body?.message ?? res.statusText);
+    const retryAfterHeader = res.headers.get("Retry-After");
+    const err = new RyoToolError(tool, res.status, body?.message ?? res.statusText);
+    (err as RyoToolError & { retryAfterMs?: number }).retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : undefined;
+    throw err;
   }
 
   // REST envelope shape observed from the builder guide: { tool, result: {...envelope} }
   const envelope: RyoEnvelope<TData> = body.result ?? body;
   return envelope;
+}
+
+// Per the builder guide's own recommendation: exponential backoff with jitter on
+// 429/503. Bounded to 2 retries so we never blow past our own per-call timeout budget.
+async function callTool<TData>(tool: string, args: Record<string, unknown> = {}, timeoutMs = 45_000): Promise<RyoEnvelope<TData>> {
+  const maxAttempts = 3;
+  let lastErr: unknown;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await callToolOnce<TData>(tool, args, timeoutMs);
+    } catch (err) {
+      lastErr = err;
+      const retryable = err instanceof RyoToolError && (err.status === 429 || err.status === 503);
+      if (!retryable || attempt === maxAttempts - 1) throw err;
+
+      const explicit = (err as RyoToolError & { retryAfterMs?: number }).retryAfterMs;
+      const backoff = explicit ?? 1_500 * 2 ** attempt;
+      const jitter = Math.random() * 400;
+      await sleep(backoff + jitter);
+    }
+  }
+
+  throw lastErr;
 }
 
 // Vercel's Hobby-tier hard ceiling is 60s per function invocation. Timeouts below

@@ -179,6 +179,11 @@ export default function Home() {
         {error && (
           <div role="alert" className="rounded-lg border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-300">
             {error}
+            {/RATE LIMIT|429/i.test(error) && (
+              <p className="mt-2 text-xs text-rose-400/80">
+                RYO&apos;s own rate limit, not this app — likely heavy traffic near the hackathon deadline. Wait 20–30s and try again.
+              </p>
+            )}
           </div>
         )}
 
