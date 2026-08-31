@@ -1,33 +1,36 @@
-# Demo video script — Counterpoint (~90 seconds)
+# Demo video script — Counterpoint (~75 seconds)
 
-Record your screen with audio. Rough beats below — say it in your own words, don't read verbatim.
+Record your screen (silent is fine — see recording checklist below), voiceover after in CapCut. Real voice or AI voice, your call.
 
-## 1. Hook (10s)
-> "Most trading tools just tell you 'buy' or 'sell.' Counterpoint makes two AI agents argue about it first — and shows you exactly why."
+## Screen recording checklist (record ~90s-2min, you'll trim)
 
-Show the Debate homepage.
+1. Homepage — sit on it for 3 seconds
+2. Click the **SOL** chip → click **Debate** → result appears almost instantly (~1-3s)
+3. Pause on the score/verdict badge for a few seconds
+4. Click into one bull claim, pause on the small gray source-field text under it
+5. Wait a moment — a small pulsing dot appears saying it's fetching deeper evidence in the background; if it upgrades before you move on, pause on the new claims for a second
+6. Click "Show full reasoning trail," scroll down slowly through a few entries
+7. Click **Compare** tab
+8. Type `SOL, AVAX` → click **Compare** → result appears almost instantly
+9. Pause on the winner badge in the factor table, and the small note underneath ("Computed in-house..." or "RYO's own deterministic scoring")
+10. End
 
-## 2. Run a real debate (35s)
-- Type a symbol (e.g. `SOL`), hit Debate.
-- While it loads (30-40s is real — RYO's own evidence pack takes that long): *"This is pulling live data from RYO right now, not cached — that's why it takes a bit."*
-- When it lands: point at the score, the verdict badge, and say *"Bull case has 9 points, bear has 1 — and every single one of these claims traces back to a real number RYO returned, not something an AI made up."*
-- Click into one bull claim and one bear claim, read the `field = value` line under each.
-- Click "Show full reasoning trail" — scroll through it briefly. *"This is the full trail — deterministic, same inputs always give the same debate."*
+## Voiceover script (~45s of speech, read it or feed to an AI voice tool)
 
-## 3. Show it disagreeing with itself is a feature (10s)
-> "It also shows RYO's own model verdict next to the debate's verdict — sometimes they agree, sometimes they don't. That's intentional transparency, not a bug."
+```
+Most trading tools just tell you buy or sell. Counterpoint makes two AI agents argue about it first, and shows you exactly why.
 
-## 4. Switch to Compare (25s)
-- Go to `/compare`, enter two symbols (`SOL, AVAX`).
-- While loading: *"Same live-data honesty here — comparing two assets on momentum, market activity, and volatility."*
-- When it lands: point at the winner badge on the factor table, then the per-token cards.
+Here's a live debate on SOL — this pulls real data from RYO, and every single claim traces back to a real number RYO returned. You can see the actual field and value under each one — nothing here is invented.
 
-## 5. Close (10s)
-> "No external LLM, no invented numbers — just RYO's own data, argued honestly. That's Counterpoint."
+In the background, it's also pulling a deeper evidence pack — confluence gates, sentiment — and upgrades the debate in place if that lands. But even without it, what you're seeing is already a complete, real debate.
 
----
+This is the full reasoning trail — deterministic, so the same data always gives the same debate.
 
-## Things to have ready before recording
-- [ ] Both `/` and `/compare` pre-tested once so you know roughly how long RYO will take that day
-- [ ] A symbol you know has an interesting bull/bear split ready as backup (SOL usually skews bullish; pick a laggard for contrast if you want a closer score)
-- [ ] Screen recording tool open and audio checked
+Same honesty on the Compare view — weighing two assets head to head, either from RYO's own official scoring or a fast in-house estimate built the same way — always labeled, never hidden.
+
+No external LLM, no invented numbers. That's Counterpoint.
+```
+
+## Before recording
+- [ ] Live app tested once just before recording: https://counterpoint-sepia.vercel.app
+- [ ] Screen recording tool + audio checked
