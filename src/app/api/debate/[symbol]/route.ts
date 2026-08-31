@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDebate } from "@/lib/debate";
+import { streamJsonResponse } from "@/lib/streamJson";
 
 export const dynamic = "force-dynamic"; // live market data — never statically cache
 // deep_analysis has been observed taking 30-40s server-side on RYO's end.
@@ -13,11 +14,5 @@ export async function GET(_req: Request, { params }: { params: Promise<{ symbol:
     return NextResponse.json({ error: "Invalid symbol." }, { status: 400 });
   }
 
-  try {
-    const result = await runDebate(symbol);
-    return NextResponse.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
+  return streamJsonResponse(() => runDebate(symbol));
 }

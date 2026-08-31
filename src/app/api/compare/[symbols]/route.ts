@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { compareTokens } from "@/lib/ryo";
+import { streamJsonResponse } from "@/lib/streamJson";
 
 export const dynamic = "force-dynamic"; // live market data — never statically cache
 // compare_tokens has been observed taking 40-55s server-side on RYO's end.
@@ -20,11 +21,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ symbols:
   const intentParam = new URL(req.url).searchParams.get("intent");
   const intent = intentParam && VALID_INTENTS.has(intentParam) ? (intentParam as "swing" | "hold" | "spot") : undefined;
 
-  try {
-    const result = await compareTokens(list.join(", "), intent);
-    return NextResponse.json(result);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
+  return streamJsonResponse(() => compareTokens(list.join(", "), intent));
 }

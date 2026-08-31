@@ -81,9 +81,13 @@ export default function Home() {
     const timeout = setTimeout(() => controller.abort(), 65_000);
 
     try {
+      // The response streams (see streamJsonResponse) so long RYO calls don't sit
+      // silent long enough to get killed by an idle-connection timeout somewhere
+      // in the path. That means status is always 200 — real errors are in the body.
       const res = await fetch(`/api/debate/${encodeURIComponent(clean)}`, { signal: controller.signal });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error ?? "Request failed.");
+      const text = await res.text();
+      const body = JSON.parse(text.trim());
+      if (!res.ok || body.error) throw new Error(body.error ?? "Request failed.");
       setResult(body);
       setShowTrail(false);
     } catch (err) {
