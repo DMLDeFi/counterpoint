@@ -106,17 +106,33 @@ class RyoToolError extends Error {
   }
 }
 
-async function callTool<TData>(tool: string, args: Record<string, unknown> = {}): Promise<RyoEnvelope<TData>> {
-  const res = await fetch(`${BASE}/tools/${tool}/call`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(args),
-    // Live market data — never cache at the fetch layer.
-    cache: "no-store",
-  });
+async function callTool<TData>(tool: string, args: Record<string, unknown> = {}, timeoutMs = 45_000): Promise<RyoEnvelope<TData>> {
+  // Vercel kills the whole function past its maxDuration with no clean error —
+  // we cancel ourselves first, with margin, so the caller gets a real Error instead.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/tools/${tool}/call`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(args),
+      // Live market data — never cache at the fetch layer.
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new RyoToolError(tool, 504, `timed out after ${timeoutMs}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   const body = await res.json();
 
@@ -129,20 +145,24 @@ async function callTool<TData>(tool: string, args: Record<string, unknown> = {})
   return envelope;
 }
 
+// Vercel's Hobby-tier hard ceiling is 60s per function invocation. Timeouts below
+// leave real margin under that so we always fail cleanly with our own error
+// instead of the platform silently killing the whole request (which the browser
+// only ever sees as "Failed to fetch").
 export function analyzeToken(symbol: string) {
-  return callTool<AnalyzeTokenData>("analyze_token", { symbol });
+  return callTool<AnalyzeTokenData>("analyze_token", { symbol }, 20_000);
 }
 
 export function deepAnalysis(symbol: string, includePerp = false) {
-  return callTool<DeepAnalysisData>("deep_analysis", { symbol, include_perp: includePerp });
+  return callTool<DeepAnalysisData>("deep_analysis", { symbol, include_perp: includePerp }, 45_000);
 }
 
 export function compareTokens(symbols: string, intent?: "swing" | "hold" | "spot") {
-  return callTool<CompareTokensData>("compare_tokens", intent ? { symbols, intent } : { symbols });
+  return callTool<CompareTokensData>("compare_tokens", intent ? { symbols, intent } : { symbols }, 45_000);
 }
 
 export function monitorMarketSentimentShift() {
-  return callTool<SentimentShiftData>("monitor_market_sentiment_shift", { time_window: "7d" });
+  return callTool<SentimentShiftData>("monitor_market_sentiment_shift", { time_window: "7d" }, 20_000);
 }
 
 export function marketOverview() {
