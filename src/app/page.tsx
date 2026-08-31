@@ -99,13 +99,22 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-black">
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
-        <header className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-50">Counterpoint</h1>
+    <div className="relative flex flex-1 flex-col bg-black">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_60%_60%_at_50%_-10%,rgba(16,185,129,0.12),transparent),radial-gradient(ellipse_50%_50%_at_80%_0%,rgba(244,63,94,0.10),transparent)]" />
+      <main className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-4 py-12 sm:px-6">
+        <header className="space-y-4">
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-neutral-800 bg-neutral-900/60 px-3 py-1 text-xs text-neutral-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Live on RYO-CHAN &middot; no external LLM &middot; RYO-CHAN Hackathon 2026
+          </span>
+          <h1 className="text-3xl font-semibold tracking-tight text-neutral-50 sm:text-4xl">
+            <span className="text-emerald-400">Bull</span>
+            <span className="text-neutral-600"> vs </span>
+            <span className="text-rose-400">Bear</span>
+            <span className="text-neutral-50">, argued honestly.</span>
+          </h1>
           <p className="max-w-prose text-sm text-neutral-400">
             A bull agent and a bear agent argue a token using RYO-CHAN&apos;s live read-only market data.
-            A judge weighs the evidence. Every claim below traces back to a real, named field — nothing here is invented.
+            A judge weighs the evidence. Every claim traces back to a real, named field — nothing here is invented.
           </p>
         </header>
 
@@ -131,6 +140,35 @@ export default function Home() {
             {loading ? "Debating…" : "Debate"}
           </button>
         </form>
+
+        <div className="-mt-4 flex flex-wrap gap-2">
+          {["SOL", "BTC", "AVAX", "ETH"].map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSymbol(s)}
+              className="rounded-md border border-neutral-800 px-2.5 py-1 font-mono text-xs text-neutral-500 transition hover:border-neutral-600 hover:text-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-600"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {!result && !loading && !error && (
+          <div className="grid gap-4 border-t border-neutral-900 pt-8 sm:grid-cols-3">
+            {[
+              { n: "01", t: "Pick a token", d: "Type a symbol or tap one above. RYO pulls live market data — nothing cached." },
+              { n: "02", t: "Two agents argue", d: "Bull and bear each build a weighted case from real fields: RSI, confluence, catalysts, risk." },
+              { n: "03", t: "A judge decides", d: "Scores are compared, RYO's own model verdict is shown alongside — agree or diverge, both are shown." },
+            ].map((step) => (
+              <div key={step.n}>
+                <p className="font-mono text-xs text-neutral-600">{step.n}</p>
+                <p className="mt-1 text-sm font-medium text-neutral-200">{step.t}</p>
+                <p className="mt-1 text-xs leading-relaxed text-neutral-500">{step.d}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {loading && (
           <p className="text-sm text-neutral-500">

@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local dev output
 dev.log
+
+.vercel
+.env*
