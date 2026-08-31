@@ -77,15 +77,23 @@ export default function Home() {
     setError(null);
     setResult(null);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 65_000);
+
     try {
-      const res = await fetch(`/api/debate/${encodeURIComponent(clean)}`);
+      const res = await fetch(`/api/debate/${encodeURIComponent(clean)}`, { signal: controller.signal });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error ?? "Request failed.");
       setResult(body);
       setShowTrail(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("RYO's evidence pack took too long to respond (over 65s). Try again — this is a slow-tool timeout, not a crash.");
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+      }
     } finally {
+      clearTimeout(timeout);
       setLoading(false);
     }
   }

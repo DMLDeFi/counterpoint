@@ -57,6 +57,35 @@ export interface DeepAnalysisData {
   intelligence: { narrative: string; catalysts: string[]; risks: string[] };
 }
 
+export interface CompareTokensData {
+  intent: string;
+  tokens: {
+    symbol: string;
+    name: string;
+    rank: number | null;
+    price_usd: number;
+    changes: { h1: number; h24: number; d7: number; d30: number };
+    metrics: { market_cap_usd: number; volume_24h_usd: number; rsi_14: number; atr_14_pct: number; trend: string };
+    verdict: string;
+  }[];
+  factors: {
+    key: string;
+    label: string;
+    winner: string;
+    scores: Record<string, number>;
+  }[];
+  winner: string;
+  conclusion: {
+    pick: string;
+    headline: string;
+    rationale: string;
+    runner_up_case: string;
+    confidence: "low" | "medium" | "high";
+    method: string;
+  };
+  coverage_by_token: Record<string, Record<string, string>>;
+}
+
 export interface SentimentShiftData {
   evidence: {
     fear_greed: {
@@ -109,7 +138,7 @@ export function deepAnalysis(symbol: string, includePerp = false) {
 }
 
 export function compareTokens(symbols: string, intent?: "swing" | "hold" | "spot") {
-  return callTool<unknown>("compare_tokens", intent ? { symbols, intent } : { symbols });
+  return callTool<CompareTokensData>("compare_tokens", intent ? { symbols, intent } : { symbols });
 }
 
 export function monitorMarketSentimentShift() {
